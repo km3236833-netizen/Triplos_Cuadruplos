@@ -1,519 +1,581 @@
 
 "use strict";
 
-
+// Obtener los elementos de la página.
 const campoExpresion = document.getElementById("expresion");
-const botonCalcular = document.getElementById("btnCalcular");
-const botonLimpiar = document.getElementById("btnLimpiar");
+const btnCalcular = document.getElementById("btnCalcular");
+const btnLimpiar = document.getElementById("btnLimpiar");
+const mensaje = document.getElementById("mensaje");
+
+const resultadoFinal = document.getElementById("resultadoFinal");
+const expresionProcesada = document.getElementById("expresionProcesada");
+const valorResultado = document.getElementById("valorResultado");
+const procedimiento = document.getElementById("procedimiento");
 
 const tablaTriplos = document.getElementById("tablaTriplos");
 const tablaCuadruplos = document.getElementById("tablaCuadruplos");
 
-const mensaje = document.getElementById("mensaje");
-const resultadoFinal = document.getElementById("resultadoFinal");
-const procedimiento = document.getElementById("procedimiento");
+// Caracteres permitidos: letras, números y operadores matemáticos.
+const caracteresPermitidos = /^[A-Za-z0-9+\-*/^()=\s]+$/;
 
-// Arreglos donde se almacenan las operaciones
-let triplos = [];
-let cuadruplos = [];
-let pasos = [];
+// Eventos de los botones.
+btnCalcular.addEventListener("click", calcular);
+btnLimpiar.addEventListener("click", limpiar);
 
+campoExpresion.addEventListener("keydown", evento => {
+    if (evento.key === "Enter") {
+        calcular();
+    }
+});
 
-function tokenizar(expresion) {
-    const tokens = [];
-    let posicion = 0;
+// Mostrar mensajes de error o éxito.
+function mostrarMensaje(texto, tipo) {
+    mensaje.textContent = texto;
+    mensaje.className = `mensaje ${tipo}`;
+}
 
-    while (posicion < expresion.length) {
-        const resto = expresion.slice(posicion);
+// Limpiar las tablas y ocultar resultados anteriores.
+function ocultarResultados() {
+    resultadoFinal.hidden = true;
+    procedimiento.hidden = true;
 
-        // Ignorar espacios
-        const espacios = resto.match(/^\s+/);
+    tablaTriplos.replaceChildren();
+    tablaCuadruplos.replaceChildren();
+}
 
-        if (espacios) {
-            posicion += espacios[0].length;
-            continue;
-        }
+// Función del botón Limpiar.
+function limpiar() {
+    campoExpresion.value = "";
+    mensaje.textContent = "";
+    mensaje.className = "mensaje";
 
-        // Reconocer números enteros y decimales
-        const numero = resto.match(/^\d+(?:\.\d+)?/);
+    ocultarResultados();
+    campoExpresion.focus();
+}
 
-        if (numero) {
-            tokens.push({
-                tipo: "numero",
-                valor: numero[0]
-            });
+// Función principal.
+function calcular() {
+    ocultarResultados();
 
-            posicion += numero[0].length;
-            continue;
-        }
+    mensaje.textContent = "";
+    mensaje.className = "mensaje";
 
-        // Reconocer nombres de variables
-        const variable = resto.match(/^[a-zA-Z_][a-zA-Z0-9_]*/);
+    const original = campoExpresion.value.trim();
 
-        if (variable) {
-            tokens.push({
-                tipo: "variable",
-                valor: variable[0]
-            });
-
-            posicion += variable[0].length;
-            continue;
-        }
-
-        // Reconocer operadores y paréntesis
-        const caracter = expresion[posicion];
-
-        if ("+-*/^()=".includes(caracter)) {
-            tokens.push({
-                tipo: "simbolo",
-                valor: caracter
-            });
-
-            posicion++;
-            continue;
-        }
-
-        throw new Error(
-            `Carácter no permitido: "${caracter}".`
+    if (original === "") {
+        mostrarMensaje(
+            "Escribe una expresión matemática.",
+            "error"
         );
+        return;
+    }
+
+    // Rechazar comas y caracteres que no estén permitidos.
+    if (!caracteresPermitidos.test(original)) {
+        mostrarMensaje(
+            "Expresión inválida. Solo se permiten letras, números, operadores matemáticos, paréntesis e igual.",
+            "error"
+        );
+        return;
+    }
+
+    try {
+        const asignacion = separarAsignacion(original);
+        const tokens = tokenizar(asignacion.expresion);
+
+        validarSecuencia(tokens);
+
+        // Obtener las letras diferentes utilizadas en la expresión.
+        const variables = [
+            ...new Set(tokens.filter(token => /^[A-Z]$/.test(token)))
+        ];
+
+        const valores = {};
+
+        // Pedir el valor de cada variable.
+        for (const variable of variables) {
+            const entrada = prompt(
+                `Ingresa el valor numérico de la variable ${variable}:`
+            );
+
+            if (entrada === null) {
+                mostrarMensaje("Operación cancelada.", "error");
+                return;
+            }
+
+            const texto = entrada.trim();
+
+            // Aceptar enteros y decimales con punto.
+            if (
+                texto === "" ||
+                !/^-?(?:\d+\.?\d*|\.\d+)$/.test(texto) ||
+                !Number.isFinite(Number(texto))
+            ) {
+                throw new Error(
+                    `El valor de ${variable} debe ser un número válido. Usa punto para los decimales.`
+                );
+            }
+
+            valores[variable] = Number(texto);
+        }
+
+        // Estructuras que almacenan los triplos y cuádruplos.
+        const generador = {
+            triplos: [],
+            cuadruplos: [],
+            contador: 1
+        };
+
+        const analizador = crearAnalizador(
+            tokens,
+            valores,
+            generador
+        );
+
+        const calculo = analizador.parsear();
+        const resultado = calculo.valor;
+
+        let textoExpresion = asignacion.expresion;
+
+        // Registrar la asignación final, si se escribió una variable destino.
+        if (asignacion.destino) {
+            generador.triplos.push({
+                indice: generador.triplos.length,
+                operador: ":=",
+                arg1: calculo.referencia,
+                arg2: asignacion.destino
+            });
+
+            generador.cuadruplos.push({
+                operador: ":=",
+                arg1: calculo.referencia,
+                arg2: "-",
+                resultado: asignacion.destino
+            });
+
+            textoExpresion =
+                `${asignacion.destino} = ${asignacion.expresion}`;
+        }
+
+        if (!Number.isFinite(resultado)) {
+            throw new Error("El resultado no es un número válido.");
+        }
+
+        mostrarResultado(textoExpresion, resultado, generador);
+
+        mostrarMensaje(
+            "Expresión procesada correctamente.",
+            "correcto"
+        );
+
+    } catch (error) {
+        mostrarMensaje(
+            error.message || "No fue posible procesar la expresión.",
+            "error"
+        );
+    }
+}
+
+// Separar una asignación como R=(A+B)*2.
+function separarAsignacion(texto) {
+    const partes = texto.split("=");
+
+    if (partes.length === 1) {
+        return {
+            destino: null,
+            expresion: texto
+        };
+    }
+
+    if (partes.length !== 2) {
+        throw new Error("Solo se permite un signo igual (=).");
+    }
+
+    const destino = partes[0].trim().toUpperCase();
+    const expresion = partes[1].trim();
+
+    if (!/^[A-Z]$/.test(destino)) {
+        throw new Error(
+            "A la izquierda de = escribe una sola letra."
+        );
+    }
+
+    if (expresion === "") {
+        throw new Error(
+            "Escribe una expresión después del signo igual."
+        );
+    }
+
+    return { destino, expresion };
+}
+
+// Separar la expresión en números, letras y operadores.
+function tokenizar(texto) {
+    const tokens = [];
+    let i = 0;
+
+    while (i < texto.length) {
+        const caracter = texto[i];
+
+        if (/\s/.test(caracter)) {
+            i++;
+            continue;
+        }
+
+        // Leer números enteros o decimales.
+        if (/[0-9.]/.test(caracter)) {
+            const coincidencia = texto
+                .slice(i)
+                .match(/^(?:\d+\.?\d*|\.\d+)/);
+
+            if (!coincidencia) {
+                throw new Error(
+                    `Número inválido cerca de "${texto.slice(i)}".`
+                );
+            }
+
+            tokens.push(coincidencia[0]);
+            i += coincidencia[0].length;
+            continue;
+        }
+
+        // Aceptar cualquier letra y convertirla a mayúscula.
+        if (/[A-Za-z]/.test(caracter)) {
+            tokens.push(caracter.toUpperCase());
+            i++;
+            continue;
+        }
+
+        if ("+-*/^()".includes(caracter)) {
+            tokens.push(caracter);
+            i++;
+            continue;
+        }
+
+        throw new Error(`Carácter no permitido: ${caracter}`);
+    }
+
+    if (tokens.length === 0) {
+        throw new Error("La expresión está vacía.");
     }
 
     return tokens;
 }
 
-function agregarOperacion(operador, arg1, arg2 = "-") {
-    const indice = triplos.length;
-    const temporal = `T${cuadruplos.length + 1}`;
+// Validar el orden de operandos, operadores y paréntesis.
+function validarSecuencia(tokens) {
+    let balance = 0;
+    let esperaOperando = true;
 
-    // Guardar la operación en la tabla de triplos
-    triplos.push({
-        indice: indice,
-        operador: operador,
-        arg1: arg1,
-        arg2: arg2
-    });
+    for (const token of tokens) {
+        const esNumero =
+            /^(?:\d+\.?\d*|\.\d+)$/.test(token);
 
-    // Convertir una referencia de triplo en temporal
-    function convertirReferencia(valor) {
-        const referencia = /^\((\d+)\)$/.exec(String(valor));
+        const esVariable = /^[A-Z]$/.test(token);
 
-        if (referencia) {
-            return `T${Number(referencia[1]) + 1}`;
+        if (esNumero || esVariable) {
+            if (!esperaOperando) {
+                throw new Error(
+                    `Falta un operador antes de "${token}".`
+                );
+            }
+
+            esperaOperando = false;
+
+        } else if (token === "(") {
+            if (!esperaOperando) {
+                throw new Error(
+                    "Falta un operador antes del paréntesis."
+                );
+            }
+
+            balance++;
+            esperaOperando = true;
+
+        } else if (token === ")") {
+            if (balance <= 0) {
+                throw new Error(
+                    "Hay un paréntesis de cierre sin apertura."
+                );
+            }
+
+            if (esperaOperando) {
+                throw new Error(
+                    "Hay un paréntesis vacío o falta un operando."
+                );
+            }
+
+            balance--;
+            esperaOperando = false;
+
+        } else if (["+", "-", "*", "/", "^"].includes(token)) {
+            // Permitir signos unarios como -A o 5*(-2).
+            if (esperaOperando) {
+                if (token === "+" || token === "-") {
+                    continue;
+                }
+
+                throw new Error(
+                    `El operador "${token}" necesita un operando a la izquierda.`
+                );
+            }
+
+            esperaOperando = true;
         }
-
-        return valor;
     }
 
-    // Guardar la operación en la tabla de cuádruplos
-    cuadruplos.push({
-        operador: operador,
-        arg1: convertirReferencia(arg1),
-        arg2: convertirReferencia(arg2),
-        resultado: temporal
-    });
+    if (balance !== 0) {
+        throw new Error("Los paréntesis no están equilibrados.");
+    }
 
-    return `(${indice})`;
+    if (esperaOperando) {
+        throw new Error(
+            "La expresión termina con un operador o está incompleta."
+        );
+    }
 }
 
-function analizar(tokens) {
+// Analizador matemático que respeta la prioridad de las operaciones.
+function crearAnalizador(tokens, valores, generador) {
     let posicion = 0;
 
-    // Revisar si hay una asignación, por ejemplo R = 5 + 2
-    let destino = null;
-
-    if (
-        tokens.length >= 2 &&
-        tokens[0].tipo === "variable" &&
-        tokens[1].valor === "="
-    ) {
-        destino = tokens[0].valor;
-        posicion = 2;
-    }
-
-    if (posicion >= tokens.length) {
-        throw new Error("Escribe una expresión matemática.");
-    }
-
-    // Obtener el símbolo actual
     function actual() {
         return tokens[posicion];
     }
 
-    // Aceptar un número o una expresión entre paréntesis
-    function primaria() {
-        const token = actual();
-
-        if (!token) {
-            throw new Error("La expresión está incompleta.");
-        }
-
-        // Leer números
-        if (token.tipo === "numero") {
-            posicion++;
-
-            return {
-                referencia: token.valor,
-                valor: Number(token.valor)
-            };
-        }
-
-        // Leer expresiones entre paréntesis
-        if (token.valor === "(") {
-            posicion++;
-
-            const resultado = expresion();
-
-            if (!actual() || actual().valor !== ")") {
-                throw new Error("Falta cerrar un paréntesis.");
-            }
-
-            posicion++;
-
-            return resultado;
-        }
-
-        // Las variables requieren valores para calcularse
-        if (token.tipo === "variable") {
-            throw new Error(
-                `La variable "${token.valor}" no tiene un valor numérico. Usa números para calcular.`
-            );
-        }
-
-        throw new Error(
-            `Se esperaba un número o un paréntesis, no "${token.valor}".`
-        );
+    function consumir() {
+        return tokens[posicion++];
     }
 
-    // Resolver potencias
-    function potencia() {
-        const izquierdo = primaria();
+    // Guardar cada operación en las tablas.
+    function crearOperacion(operador, izquierda, derecha, valor) {
+        const indice = generador.triplos.length;
+        const temporal = `T${generador.contador++}`;
 
-        if (actual() && actual().valor === "^") {
-            posicion++;
-
-            // La potencia se evalúa de derecha a izquierda
-            const derecho = unaria();
-
-            return operar("^", izquierdo, derecho);
-        }
-
-        return izquierdo;
-    }
-
-    // Resolver signos positivos y negativos
-    function unaria() {
-        if (actual() && actual().valor === "+") {
-            posicion++;
-            return unaria();
-        }
-
-        if (actual() && actual().valor === "-") {
-            posicion++;
-
-            const valor = unaria();
-
-            return operar("uminus", valor);
-        }
-
-        return potencia();
-    }
-
-    // Resolver multiplicaciones y divisiones
-    function multiplicativa() {
-        let izquierdo = unaria();
-
-        while (
-            actual() &&
-            (actual().valor === "*" || actual().valor === "/")
-        ) {
-            const operador = actual().valor;
-            posicion++;
-
-            const derecho = unaria();
-
-            izquierdo = operar(operador, izquierdo, derecho);
-        }
-
-        return izquierdo;
-    }
-
-    // Resolver sumas y restas
-    function expresion() {
-        let izquierdo = multiplicativa();
-
-        while (
-            actual() &&
-            (actual().valor === "+" || actual().valor === "-")
-        ) {
-            const operador = actual().valor;
-            posicion++;
-
-            const derecho = multiplicativa();
-
-            izquierdo = operar(operador, izquierdo, derecho);
-        }
-
-        return izquierdo;
-    }
-
-    // Realizar el cálculo y guardar su representación intermedia
-    function operar(operador, izquierdo, derecho = null) {
-        const valor1 = izquierdo.valor;
-        const valor2 = derecho ? derecho.valor : null;
-
-        let valorCalculado;
-
-        switch (operador) {
-            case "+":
-                valorCalculado = valor1 + valor2;
-                break;
-
-            case "-":
-                valorCalculado = valor1 - valor2;
-                break;
-
-            case "*":
-                valorCalculado = valor1 * valor2;
-                break;
-
-            case "/":
-                if (valor2 === 0) {
-                    throw new Error("No se puede dividir entre cero.");
-                }
-
-                valorCalculado = valor1 / valor2;
-                break;
-
-            case "^":
-                valorCalculado = valor1 ** valor2;
-                break;
-
-            case "uminus":
-                valorCalculado = -valor1;
-                break;
-
-            default:
-                throw new Error("Operador no reconocido.");
-        }
-
-        if (!Number.isFinite(valorCalculado)) {
-            throw new Error(
-                "El resultado no es un número finito válido."
-            );
-        }
-
-        // Guardar la operación como triplo y cuádruplo
-        const referencia = agregarOperacion(
+        generador.triplos.push({
+            indice,
             operador,
-            izquierdo.referencia,
-            derecho ? derecho.referencia : "-"
-        );
+            arg1: izquierda.referencia,
+            arg2: derecha.referencia
+        });
 
-        // Guardar el paso del procedimiento
-        const simbolo = operador === "uminus" ? "-" : operador;
-
-        const textoPaso = derecho
-            ? `${valor1} ${simbolo} ${valor2} = ${valorCalculado}`
-            : `-(${valor1}) = ${valorCalculado}`;
-
-        pasos.push(textoPaso);
+        generador.cuadruplos.push({
+            operador,
+            arg1: izquierda.referencia,
+            arg2: derecha.referencia,
+            resultado: temporal
+        });
 
         return {
-            referencia: referencia,
-            valor: valorCalculado
+            valor,
+            referencia: `(${indice})`
         };
     }
 
-    // Comenzar el análisis
-    const resultado = expresion();
+    // Números, variables, paréntesis y signos unarios.
+    function primaria() {
+        const token = actual();
 
-    // Comprobar que no sobren símbolos
-    if (posicion !== tokens.length) {
-        throw new Error(
-            `Símbolo inesperado: "${tokens[posicion].valor}".`
-        );
-    }
+        if (token === "+" || token === "-") {
+            consumir();
 
-    // Registrar la asignación final si existe
-    if (destino !== null) {
-        triplos.push({
-            indice: triplos.length,
-            operador: ":=",
-            arg1: resultado.referencia,
-            arg2: destino
-        });
+            const valor = primaria();
 
-        cuadruplos.push({
-            operador: ":=",
-            arg1: convertirResultado(resultado.referencia),
-            arg2: "-",
-            resultado: destino
-        });
+            if (token === "+") {
+                return valor;
+            }
 
-        pasos.push(`${destino} = ${resultado.valor}`);
-    }
-
-    return resultado.valor;
-}
-
-// Convertir una referencia de triplo a temporal
-function convertirResultado(referencia) {
-    const coincidencia = /^\((\d+)\)$/.exec(String(referencia));
-
-    if (coincidencia) {
-        return `T${Number(coincidencia[1]) + 1}`;
-    }
-
-    return referencia;
-}
-
-
-function mostrarTriplos() {
-    tablaTriplos.replaceChildren();
-
-    triplos.forEach((triplo) => {
-        const fila = document.createElement("tr");
-
-        [
-            triplo.indice,
-            triplo.operador,
-            triplo.arg1,
-            triplo.arg2
-        ].forEach((valor) => {
-            const celda = document.createElement("td");
-            celda.textContent = valor;
-            fila.appendChild(celda);
-        });
-
-        tablaTriplos.appendChild(fila);
-    });
-}
-
-function mostrarCuadruplos() {
-    tablaCuadruplos.replaceChildren();
-
-    cuadruplos.forEach((cuadruplo) => {
-        const fila = document.createElement("tr");
-
-        [
-            cuadruplo.operador,
-            cuadruplo.arg1,
-            cuadruplo.arg2,
-            cuadruplo.resultado
-        ].forEach((valor) => {
-            const celda = document.createElement("td");
-            celda.textContent = valor;
-            fila.appendChild(celda);
-        });
-
-        tablaCuadruplos.appendChild(fila);
-    });
-}
-
-function mostrarProcedimiento() {
-    procedimiento.replaceChildren();
-
-    pasos.forEach((paso, indice) => {
-        const linea = document.createElement("p");
-
-        linea.textContent = `${indice + 1}. ${paso}`;
-
-        procedimiento.appendChild(linea);
-    });
-}
-
-
-function calcular() {
-    try {
-        // Limpiar los resultados anteriores
-        reiniciarResultados();
-
-        const texto = campoExpresion.value.trim();
-
-        if (texto === "") {
-            throw new Error("Primero escribe una expresión.");
+            return crearOperacion(
+                "-",
+                { valor: 0, referencia: "0" },
+                valor,
+                -valor.valor
+            );
         }
 
-        // Convertir el texto en tokens
-        const tokens = tokenizar(texto);
+        if (token === "(") {
+            consumir();
 
-        if (tokens.length === 0) {
-            throw new Error("No se encontró una expresión.");
+            const resultado = sumaResta();
+
+            if (actual() !== ")") {
+                throw new Error("Falta un paréntesis de cierre.");
+            }
+
+            consumir();
+            return resultado;
         }
 
-        // Analizar, generar operaciones y calcular
-        const resultado = analizar(tokens);
+        if (token === undefined) {
+            throw new Error("Falta un operando.");
+        }
 
-        // Mostrar las tablas y el procedimiento
-        mostrarTriplos();
-        mostrarCuadruplos();
-        mostrarProcedimiento();
+        if (/^(?:\d+\.?\d*|\.\d+)$/.test(token)) {
+            consumir();
 
-        resultadoFinal.textContent =
-            Number(resultado.toPrecision(12)).toString();
+            return {
+                valor: Number(token),
+                referencia: token
+            };
+        }
 
-        mensaje.textContent = "Cálculo realizado correctamente.";
-        mensaje.style.color = "#15803d";
+        if (/^[A-Z]$/.test(token)) {
+            consumir();
 
-    } catch (error) {
-        // No conservar resultados parciales si ocurre un error
-        reiniciarResultados();
+            if (!(token in valores)) {
+                throw new Error(`No se definió el valor de ${token}.`);
+            }
 
-        mensaje.textContent = "Error: " + error.message;
-        mensaje.style.color = "#dc2626";
+            return {
+                valor: valores[token],
+                referencia: token
+            };
+        }
+
+        throw new Error(`Operando inesperado: "${token}".`);
+    }
+
+    // Potencias.
+    function potencia() {
+        let izquierda = primaria();
+
+        if (actual() === "^") {
+            consumir();
+
+            const derecha = potencia();
+
+            izquierda = crearOperacion(
+                "^",
+                izquierda,
+                derecha,
+                Math.pow(izquierda.valor, derecha.valor)
+            );
+        }
+
+        return izquierda;
+    }
+
+    // Multiplicación y división.
+    function multiplicacionDivision() {
+        let izquierda = potencia();
+
+        while (actual() === "*" || actual() === "/") {
+            const operador = consumir();
+            const derecha = potencia();
+
+            if (operador === "/" && derecha.valor === 0) {
+                throw new Error("No se puede dividir entre cero.");
+            }
+
+            const resultado = operador === "*"
+                ? izquierda.valor * derecha.valor
+                : izquierda.valor / derecha.valor;
+
+            izquierda = crearOperacion(
+                operador,
+                izquierda,
+                derecha,
+                resultado
+            );
+        }
+
+        return izquierda;
+    }
+
+    // Suma y resta.
+    function sumaResta() {
+        let izquierda = multiplicacionDivision();
+
+        while (actual() === "+" || actual() === "-") {
+            const operador = consumir();
+            const derecha = multiplicacionDivision();
+
+            const resultado = operador === "+"
+                ? izquierda.valor + derecha.valor
+                : izquierda.valor - derecha.valor;
+
+            izquierda = crearOperacion(
+                operador,
+                izquierda,
+                derecha,
+                resultado
+            );
+        }
+
+        return izquierda;
+    }
+
+    return {
+        parsear() {
+            const resultado = sumaResta();
+
+            if (posicion < tokens.length) {
+                throw new Error(
+                    `No se esperaba el elemento "${actual()}".`
+                );
+            }
+
+            return resultado;
+        }
+    };
+}
+
+// Mostrar el resultado y construir las tablas.
+function mostrarResultado(expresion, resultado, generador) {
+    expresionProcesada.textContent = `Expresión: ${expresion}`;
+
+    valorResultado.textContent =
+        `Resultado numérico: ${Number(resultado.toFixed(10))}`;
+
+    resultadoFinal.hidden = false;
+    procedimiento.hidden = false;
+
+    for (const fila of generador.triplos) {
+        const tr = document.createElement("tr");
+
+        [
+            fila.indice,
+            fila.operador,
+            fila.arg1,
+            fila.arg2
+        ].forEach(valor => agregarCelda(tr, valor));
+
+        tablaTriplos.appendChild(tr);
+    }
+
+    for (const fila of generador.cuadruplos) {
+        const tr = document.createElement("tr");
+
+        [
+            fila.operador,
+            fila.arg1,
+            fila.arg2,
+            fila.resultado
+        ].forEach(valor => agregarCelda(tr, valor));
+
+        tablaCuadruplos.appendChild(tr);
+    }
+
+    if (generador.triplos.length === 0) {
+        agregarFilaVacia(tablaTriplos);
+        agregarFilaVacia(tablaCuadruplos);
     }
 }
 
-
-function reiniciarResultados() {
-    triplos = [];
-    cuadruplos = [];
-    pasos = [];
-
-    tablaTriplos.replaceChildren();
-    tablaCuadruplos.replaceChildren();
-    procedimiento.replaceChildren();
-
-    resultadoFinal.textContent = "Pendiente de calcular";
-
-    const filaTriplo = document.createElement("tr");
-    const celdaTriplo = document.createElement("td");
-
-    celdaTriplo.colSpan = 4;
-    celdaTriplo.className = "vacio";
-    celdaTriplo.textContent = "Sin resultados.";
-
-    filaTriplo.appendChild(celdaTriplo);
-    tablaTriplos.appendChild(filaTriplo);
-
-    const filaCuadruplo = document.createElement("tr");
-    const celdaCuadruplo = document.createElement("td");
-
-    celdaCuadruplo.colSpan = 4;
-    celdaCuadruplo.className = "vacio";
-    celdaCuadruplo.textContent = "Sin resultados.";
-
-    filaCuadruplo.appendChild(celdaCuadruplo);
-    tablaCuadruplos.appendChild(filaCuadruplo);
+// Crear celdas usando textContent para mostrar el contenido como texto.
+function agregarCelda(fila, contenido) {
+    const celda = document.createElement("td");
+    celda.textContent = String(contenido);
+    fila.appendChild(celda);
 }
 
+function agregarFilaVacia(tabla) {
+    const fila = document.createElement("tr");
+    const celda = document.createElement("td");
 
-function limpiar() {
-    campoExpresion.value = "";
-    reiniciarResultados();
+    celda.colSpan = 4;
+    celda.textContent = "No se necesitan operaciones intermedias.";
 
-    mensaje.textContent = "";
-
-    campoExpresion.focus();
+    fila.appendChild(celda);
+    tabla.appendChild(fila);
 }
-
-// Conectar los botones con sus funciones
-botonCalcular.addEventListener("click", calcular);
-botonLimpiar.addEventListener("click", limpiar);
-
-// Calcular también al presionar Enter
-campoExpresion.addEventListener("keydown", (evento) => {
-    if (evento.key === "Enter") {
-        calcular();
-    }
-});

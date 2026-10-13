@@ -4,349 +4,257 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
     <title>Programa de Triplos y Cuádruplos</title>
 
     <style>
         * {
             box-sizing: border-box;
-            margin: 0;
-            padding: 0;
         }
 
         body {
-            font-family: Arial, Helvetica, sans-serif;
-            background: #f1f5f9;
-            color: #1e293b;
-            min-height: 100vh;
+            margin: 0;
+            padding: 24px;
+            font-family: Arial, sans-serif;
+            background: #f2f5f9;
+            color: #202938;
         }
 
-        header {
-            background: #172554;
-            color: white;
-            text-align: center;
-            padding: 30px 15px;
-        }
-
-        header h1 {
-            font-size: 28px;
-            margin-bottom: 10px;
-        }
-
-        header p {
-            color: #cbd5e1;
-            font-size: 15px;
-        }
-
-        main {
-            width: 92%;
+        .contenedor {
             max-width: 1100px;
-            margin: 30px auto;
-        }
-
-        .panel {
+            margin: auto;
+            padding: 28px;
             background: white;
-            padding: 25px;
-            margin-bottom: 25px;
-            border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.06);
+            border-radius: 14px;
+            box-shadow: 0 8px 24px rgba(20, 35, 60, 0.10);
         }
 
-        h2 {
-            color: #1d4ed8;
-            font-size: 22px;
-            margin-bottom: 18px;
+        h1 {
+            text-align: center;
+            color: #174ea6;
+        }
+
+        .descripcion {
+            text-align: center;
+            line-height: 1.5;
         }
 
         label {
             display: block;
+            margin: 22px 0 8px;
             font-weight: bold;
-            margin-bottom: 10px;
         }
 
         input {
             width: 100%;
-            padding: 14px;
-            border: 1px solid #cbd5e1;
-            border-radius: 8px;
+            padding: 13px;
             font-size: 17px;
-            margin-bottom: 15px;
-        }
-
-        input:focus {
-            outline: 2px solid #93c5fd;
-            border-color: #2563eb;
+            border: 1px solid #b8c3d1;
+            border-radius: 8px;
         }
 
         .botones {
             display: flex;
-            flex-wrap: wrap;
-            gap: 12px;
+            gap: 10px;
+            margin-top: 12px;
         }
 
         button {
-            padding: 12px 22px;
+            padding: 11px 18px;
             border: none;
             border-radius: 8px;
-            font-size: 15px;
             font-weight: bold;
             cursor: pointer;
-            transition: background 0.2s;
         }
 
-        .calcular {
-            background: #2563eb;
+        #btnCalcular {
+            background: #1769d2;
             color: white;
         }
 
-        .calcular:hover {
-            background: #1d4ed8;
-        }
-
-        .limpiar {
-            background: #e2e8f0;
-            color: #1e293b;
-        }
-
-        .limpiar:hover {
-            background: #cbd5e1;
-        }
-
-        #mensaje {
-            margin-top: 15px;
-            font-size: 14px;
-            font-weight: bold;
-            overflow-wrap: anywhere;
+        #btnLimpiar {
+            background: #e7edf5;
         }
 
         .ayuda {
-            margin-top: 18px;
-            padding: 15px;
-            border-left: 4px solid #2563eb;
-            border-radius: 6px;
-            background: #eff6ff;
-            color: #1e40af;
             font-size: 14px;
-            line-height: 1.8;
+            color: #59677a;
+            line-height: 1.6;
+        }
+
+        .mensaje {
+            display: none;
+            margin-top: 16px;
+            padding: 12px;
+            border-radius: 8px;
+        }
+
+        .error {
+            display: block;
+            color: #a32222;
+            background: #fff0f0;
+        }
+
+        .correcto {
+            display: block;
+            color: #17653a;
+            background: #ecfdf3;
         }
 
         .resultado {
-            background: #ecfdf5;
-            border: 1px solid #a7f3d0;
+            margin-top: 20px;
+            padding: 16px;
+            background: #edf5ff;
+            border-radius: 9px;
         }
 
-        .resultado h2 {
-            color: #047857;
-        }
-
-        #resultadoFinal {
-            font-size: 25px;
-            font-weight: bold;
-            color: #047857;
-            overflow-wrap: anywhere;
-        }
-
-        #procedimiento {
-            margin-top: 15px;
-            line-height: 1.9;
-            overflow-wrap: anywhere;
+        .tablas {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 24px;
         }
 
         .tabla-contenedor {
-            width: 100%;
+            min-width: 0;
             overflow-x: auto;
         }
 
         table {
             width: 100%;
-            min-width: 450px;
             border-collapse: collapse;
+            margin-top: 10px;
         }
 
         th, td {
-            padding: 13px;
-            text-align: center;
-            border: 1px solid #e2e8f0;
+            border: 1px solid #d7dee8;
+            padding: 9px;
+            text-align: left;
+            overflow-wrap: anywhere;
         }
 
         th {
-            background: #dbeafe;
-            color: #1e3a8a;
+            background: #eaf0f8;
         }
 
         tbody tr:nth-child(even) {
             background: #f8fafc;
         }
 
-        .vacio {
-            color: #64748b;
-            padding: 20px;
+        [hidden] {
+            display: none !important;
         }
 
-        footer {
-            text-align: center;
-            padding: 25px 15px;
-            color: #64748b;
-            font-size: 13px;
-        }
-
-        @media (max-width: 600px) {
-            header h1 {
-                font-size: 23px;
+        @media (max-width: 750px) {
+            body {
+                padding: 12px;
             }
 
-            main {
-                width: 95%;
-                margin: 20px auto;
+            .contenedor {
+                padding: 18px;
             }
 
-            .panel {
-                padding: 17px;
-            }
-
-            .botones button {
-                flex: 1;
+            .tablas {
+                grid-template-columns: 1fr;
             }
         }
     </style>
 </head>
 
 <body>
+    <main class="contenedor">
 
-    <header>
-        <h1>Generador de Triplos y Cuádruplos</h1>
-        <p>Análisis de expresiones matemáticas y código intermedio</p>
-    </header>
+        <h1>Programa de Triplos y Cuádruplos</h1>
 
-    <main>
+        <p class="descripcion">
+            Escribe una expresión matemática para generar sus tablas
+            de triplos y cuádruplos y obtener el resultado numérico.
+        </p>
 
-        <!-- Captura de la expresión -->
-        <section class="panel">
-            <h2>Ingresar expresión</h2>
+        <label for="expresion">Expresión matemática:</label>
 
-            <label for="expresion">
-                Escribe una expresión matemática:
-            </label>
+        <input
+            type="text"
+            id="expresion"
+            placeholder="Ejemplo: R=(A+B)*2"
+            autocomplete="off"
+            spellcheck="false"
+        >
 
-            <input
-                type="text"
-                id="expresion"
-                placeholder="Ejemplo: (10 + 5) * 2 - 4"
-                autocomplete="off"
-                spellcheck="false"
-            >
+        <div class="botones">
+            <button id="btnCalcular" type="button">
+                Calcular
+            </button>
 
-            <div class="botones">
-                <button
-                    type="button"
-                    id="btnCalcular"
-                    class="calcular"
-                >
-                    Calcular
-                </button>
+            <button id="btnLimpiar" type="button">
+                Limpiar
+            </button>
+        </div>
 
-                <button
-                    type="button"
-                    id="btnLimpiar"
-                    class="limpiar"
-                >
-                    Limpiar
-                </button>
-            </div>
+        <p class="ayuda">
+            Se permiten letras de A a Z, números, paréntesis y
+            operadores +, -, *, /, ^ e igual (=).
+            No se permiten comas ni otros símbolos.
+            Si utilizas letras, el programa solicitará sus valores.
+            Ejemplo: R=(A+B)*2.
+        </p>
 
-            <p id="mensaje" role="status" aria-live="polite"></p>
+        <div
+            id="mensaje"
+            class="mensaje"
+            role="status"
+            aria-live="polite">
+        </div>
 
-            <div class="ayuda">
-                <strong>Operadores:</strong>
-                suma (+), resta (-), multiplicación (*),
-                división (/) y potencia (^).
-
-                <br>
-
-                <strong>También admite:</strong>
-                paréntesis, números enteros, decimales
-                y asignaciones como R = (10 + 5) * 2.
-
-                <br>
-
-                <strong>Ejemplos:</strong>
-                8+4*2, (10+5)/3, 2^3+4, R=(7-2)*6.
-
-                <br>
-
-                Para calcular el resultado numérico,
-                utiliza números en la expresión.
-            </div>
+        <section id="resultadoFinal" class="resultado" hidden>
+            <h2>Resultado</h2>
+            <p id="expresionProcesada"></p>
+            <p id="valorResultado"></p>
         </section>
 
-        <!-- Resultado numérico -->
-        <section class="panel resultado">
-            <h2>Resultado de la operación</h2>
+        <section id="procedimiento" hidden>
+            <h2>Procedimiento generado</h2>
 
-            <p id="resultadoFinal">Pendiente de calcular</p>
+            <div class="tablas">
 
-            <div id="procedimiento"></div>
-        </section>
+                <div class="tabla-contenedor">
+                    <h3>Tabla de triplos</h3>
 
-        <!-- Tabla de triplos -->
-        <section class="panel">
-            <h2>Tabla de triplos</h2>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Índice</th>
+                                <th>Operador</th>
+                                <th>Argumento 1</th>
+                                <th>Argumento 2</th>
+                            </tr>
+                        </thead>
 
-            <div class="tabla-contenedor">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Índice</th>
-                            <th>Operador</th>
-                            <th>Argumento 1</th>
-                            <th>Argumento 2</th>
-                        </tr>
-                    </thead>
+                        <tbody id="tablaTriplos"></tbody>
+                    </table>
+                </div>
 
-                    <tbody id="tablaTriplos">
-                        <tr>
-                            <td colspan="4" class="vacio">
-                                Sin resultados.
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </section>
+                <div class="tabla-contenedor">
+                    <h3>Tabla de cuádruplos</h3>
 
-        <!-- Tabla de cuádruplos -->
-        <section class="panel">
-            <h2>Tabla de cuádruplos</h2>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Operador</th>
+                                <th>Argumento 1</th>
+                                <th>Argumento 2</th>
+                                <th>Resultado</th>
+                            </tr>
+                        </thead>
 
-            <div class="tabla-contenedor">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Operador</th>
-                            <th>Argumento 1</th>
-                            <th>Argumento 2</th>
-                            <th>Resultado</th>
-                        </tr>
-                    </thead>
+                        <tbody id="tablaCuadruplos"></tbody>
+                    </table>
+                </div>
 
-                    <tbody id="tablaCuadruplos">
-                        <tr>
-                            <td colspan="4" class="vacio">
-                                Sin resultados.
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
             </div>
         </section>
 
     </main>
 
-    <footer>
-        Práctica de compiladores | Triplos y cuádruplos
-    </footer>
-
     <script src="index.js"></script>
-
 </body>
 </html>
